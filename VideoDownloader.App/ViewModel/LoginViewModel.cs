@@ -52,7 +52,7 @@ namespace VideoDownloader.App.ViewModel
 
         public string UserName
         {
-            get => _userName;
+            get => "pluralsight0109@gmail.com";
 
             set
             {

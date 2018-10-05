@@ -338,19 +338,20 @@ namespace VideoDownloader.App.ViewModel
                 timeoutProgress.ProgressChanged += OnTimeoutProgressChanged;
 
                 var coursesToDownload = CurrentDisplayedFilteredCourses.Where(c => c.CheckedForDownloading);
-                foreach (var course in coursesToDownload)
+                foreach (var courseDescription in coursesToDownload)
                 {
-                    string tableOfContent = await _courseService.GetTableOfContentAsync(course.Id, _cancellationToken.Token);
-                    string fullDescription = await _courseService.GetFullDescriptionAsync(course.Id, _cancellationToken.Token);
-                    
+                    string fullInformation = await _courseService.GetFullCourseInformationAsync(courseDescription.Id, _cancellationToken.Token);
+                    Course courseFullInfo = JsonConvert.DeserializeObject<Course>(fullInformation);
+
+                    var tableOfContent = _courseService.CreateTableOfContent(fullInformation);
                     string destinationFolder = _configProvider.DownloadsPath;
-                    string validBaseCourseDirectory = $"{_courseService.GetBaseCourseDirectoryName(destinationFolder, course.Title)}";
+                    string validBaseCourseDirectory = $"{_courseService.GetBaseCourseDirectoryName(destinationFolder, courseFullInfo.Title)}";
 
                     _courseMetadataService.WriteTableOfContent(validBaseCourseDirectory, tableOfContent);
-                    _courseMetadataService.WriteDescription(validBaseCourseDirectory, fullDescription);
-                    await _courseService.DownloadAsync(course.Id, downloadingProgress, timeoutProgress, _cancellationToken.Token);
+                    _courseMetadataService.WriteDescription(validBaseCourseDirectory, courseFullInfo.Description);
+                    await _courseService.DownloadAsync(courseFullInfo, downloadingProgress, timeoutProgress, _cancellationToken.Token);
 
-                    course.CheckedForDownloading = false;
+                    courseDescription.CheckedForDownloading = false;
                     --NumberOfSelectedCourses;
                 }
                 IsDownloading = false;

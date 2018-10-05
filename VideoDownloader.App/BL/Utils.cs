@@ -10,6 +10,7 @@ namespace VideoDownloader.App.BL
             var regexSearch = new string(Path.GetInvalidFileNameChars()) + new string(Path.GetInvalidPathChars());
             var r = new Regex($"[{Regex.Escape(regexSearch)}]");
             path = r.Replace(path, string.Empty);
+            path = path.Trim(' ');
             return path;
         }
 

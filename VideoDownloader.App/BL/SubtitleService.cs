@@ -11,12 +11,12 @@ namespace VideoDownloader.App.BL
 {
     class SubtitleService: ISubtitleService
     {
-        public async Task<string> DownloadAsync(HttpHelper httpHelper, string authorId, int partNumber, string moduleName, CancellationToken token)
+        public async Task<string> DownloadAsync(HttpHelper httpHelper, string clipId, CancellationToken token)
         {
-            string postData = BuildSubtitlePostDataJson(authorId, partNumber, moduleName);
-            ResponseEx response = await httpHelper.SendRequest(HttpMethod.Post,
-                             new Uri(Properties.Settings.Default.SubtitlesUrl),
-                             postData,
+            string url = $"https://app.pluralsight.com/transcript/api/v1/caption/json/{clipId}/en";
+            ResponseEx response = await httpHelper.SendRequest(HttpMethod.Get,
+                             new Uri(url),
+                             null,
                              Properties.Settings.Default.RetryOnRequestFailureCount, token);
             return response.Content;
         }

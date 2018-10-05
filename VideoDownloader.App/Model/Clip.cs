@@ -1,24 +1,32 @@
-﻿namespace VideoDownloader.App.Model
+﻿using System;
+using Newtonsoft.Json;
+
+namespace VideoDownloader.App.Model
 {
     public class Clip
     {
-        public bool Authorized { get; set; }
+        [JsonProperty("id")]
+        public string Id { get; set; }
 
-        public int Index { get; set; }
+        [JsonProperty("clipId")]
+        public Guid ClipId { get; set; }
 
-        public int ModuleIndex { get; set; }
+        [JsonProperty("deprecatedId")]
+        public string DeprecatedId { get; set; }
 
+        [JsonProperty("title")]
         public string Title { get; set; }
 
-        public int Duration { get; set; }
+        [JsonProperty("duration")]
+        public string Duration { get; set; }
 
-        public string FormattedDuration { get; set; }
-
-        public string Name { get; set; }
-
-        public bool Watched { get; set; }
-
-        public string Id { get; set; }
+        [JsonProperty("moduleTitle")]
         public string ModuleTitle { get; set; }
+
+        [JsonProperty("playerUrl")]
+        public string PlayerUrl { get; set; }
+
+        [JsonProperty("ordering")]
+        public long Ordering { get; set; }
     }
 }

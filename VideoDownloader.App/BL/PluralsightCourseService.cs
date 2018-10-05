@@ -7,9 +7,12 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Timers;
+using System.Xml;
+using Newtonsoft.Json;
 using VideoDownloader.App.BL.Exceptions;
 using VideoDownloader.App.Contracts;
 using VideoDownloader.App.Model;
+using VideoDownloader.App.Properties;
 using Timer = System.Timers.Timer;
 
 namespace VideoDownloader.App.BL
@@ -65,7 +68,7 @@ namespace VideoDownloader.App.BL
             }
         }
 
-        public async Task DownloadAsync(string productId,
+        public async Task DownloadAsync(Course course,
           IProgress<CourseDownloadingProgressArguments> downloadingProgress,
           IProgress<int> timeoutProgress,
           CancellationToken token)
@@ -73,30 +76,41 @@ namespace VideoDownloader.App.BL
             _timeoutProgress = timeoutProgress;
             _courseDownloadingProgress = downloadingProgress;
             _token = token;
-
-            var rpcUri = Properties.Settings.Default.RpcUri;
-            RpcData rpcData = await GetDeserialisedRpcData(rpcUri, productId, _token);
-            await DownloadCourse(rpcData);
+            string rpcUri = Settings.Default.RpcUri;
+            var courseExtraInfo = await GetCourseExtraInfo(rpcUri, course.Id, this._token);
+            course.SupportsWideScreen =
+                courseExtraInfo.Data.Rpc.BootstrapPlayer.ExtraInfo.SupportsWideScreenVideoFormats;
+            await DownloadCourse(course);
         }
 
-        public async Task<string> GetTableOfContentAsync(string productId, CancellationToken token)
+        public string CreateTableOfContent(string courseJson)
         {
-            var rpcUri = Properties.Settings.Default.RpcUri;
+            dynamic json = JsonConvert.DeserializeObject<dynamic>(courseJson);
+            int moduleCounter = 0;
             StringBuilder tableOfContent = new StringBuilder();
-            RpcData rpcData = await GetDeserialisedRpcData(rpcUri, productId, token);
-            foreach (var module in rpcData.Payload.Course.Modules)
+
+            foreach (var module in json.modules)
             {
-                tableOfContent.AppendLine($"{module.Title} {module.FormattedDuration}");
-                foreach (var clip in module.Clips)
+                int clipCounter = 0;
+                ++moduleCounter;
+                TimeSpan moduleTimeSpan = XmlConvert.ToTimeSpan((string)module.duration);
+                string moduleDuration = moduleTimeSpan.ToString(@"hh\:mm\:ss");
+                tableOfContent.AppendLine($"{moduleCounter,3}.{module.title} {moduleDuration}");
+                foreach (var clip in module.clips)
                 {
-                    tableOfContent.AppendLine($" {clip.Title}  {clip.FormattedDuration}");
+                    ++clipCounter;
+                    TimeSpan clipTimeSpan = XmlConvert.ToTimeSpan((string)clip.duration);
+                    string clipDuration = clipTimeSpan.ToString(@"hh\:mm\:ss");
+                    tableOfContent.AppendLine($"\t{clipCounter,3}.{clip.title} {clipDuration}");
                 }
-                tableOfContent.AppendLine();
             }
+
+            var rpcUri = Properties.Settings.Default.RpcUri;
+            
             return tableOfContent.ToString();
         }
 
-        private async Task<string> GetFullDescription(string productId, CancellationToken token)
+        public async Task<string> GetFullCourseInformationAsync(string productId, CancellationToken token)
         {
             string url = $"https://app.pluralsight.com/learner/content/courses/{productId}";
 
@@ -111,21 +125,13 @@ namespace VideoDownloader.App.BL
             };
             var courseRespone = await httpHelper.SendRequest(HttpMethod.Get, new Uri(url), null, Properties.Settings.Default.RetryOnRequestFailureCount, token);
 
-            dynamic data = Newtonsoft.Json.JsonConvert.DeserializeObject(courseRespone.Content);
-            return data.description;
+            return courseRespone.Content;
         }
 
-        public async Task<string> GetFullDescriptionAsync(string productId, CancellationToken token)
-        {
-
-            return await GetFullDescription(productId, token);
-        }
-
-        private async Task DownloadCourse(RpcData rpcData)
+        private async Task DownloadCourse(Course course)
         {
             string destinationFolder = _configProvider.DownloadsPath;
 
-            var course = rpcData.Payload.Course;
             _timeoutBetweenClipDownloadingTimer.Elapsed += OnTimerElapsed;
 
             var courseDirectory = CreateCourseDirectory(GetBaseCourseDirectoryName(destinationFolder, course.Title));
@@ -135,8 +141,12 @@ namespace VideoDownloader.App.BL
                 foreach (var module in course.Modules)
                 {
                     ++moduleCounter;
-                    await DownloadModule(rpcData, courseDirectory, moduleCounter, module);
+                    await DownloadModule(course, courseDirectory, moduleCounter, module);
                 }
+            }
+            catch (Exception e)
+            {
+                var mssg = e.Message;
             }
             finally
             {
@@ -164,15 +174,13 @@ namespace VideoDownloader.App.BL
             }
         }
 
-        private async Task DownloadModule(RpcData rpcData,
+        private async Task DownloadModule(Course course,
             string courseDirectory,
             int moduleCounter, Module module)
         {
             var moduleDirectory = CreateModuleDirectory(courseDirectory, moduleCounter, module.Title);
-            var course = rpcData.Payload.Course;
             var clipCounter = 0;
-            string referrer =
-                   $"https://{Properties.Settings.Default.SiteHostName}/player?course={course.Name}&author={module.Author}&name={module.Name}&clip={clipCounter - 1}&mode=live";
+            string referrer = $"https://{Properties.Settings.Default.SiteHostName}/player?course={course.Id}&author={module.AuthorId}&name={module.ModuleId}&clip=0&mode=live";
 
             HttpHelper httpHelper = new HttpHelper
             {
@@ -184,45 +192,49 @@ namespace VideoDownloader.App.BL
                 UserAgent = _userAgent
             };
 
+            string moduleInfoPayload = GraphQlHelper.GetModuleInfoRequest(course.Id);
+            ResponseEx courseRpcResponse = await httpHelper.SendRequest(HttpMethod.Post, new Uri("https://" + Settings.Default.SiteHostName + "/player/api/graphql"), moduleInfoPayload, Settings.Default.RetryOnRequestFailureCount, this._token);
+            CourseRpcData courceRpcData = JsonConvert.DeserializeObject<CourseRpcData>(courseRpcResponse.Content);
             foreach (var clip in module.Clips)
             {
                 ++clipCounter;
-                var postJson = BuildViewclipPostDataJson(rpcData, moduleCounter, clipCounter);
+                //var postJson = BuildViewclipPostDataJson(course, moduleCounter, clipCounter);
 
                 var fileName = GetFullFileNameWithoutExtension(clipCounter, moduleDirectory, clip);
 
                 if (!File.Exists($"{fileName}.{Properties.Settings.Default.ClipExtensionMp4}"))
                 {
-                    ResponseEx viewclipResonse = await httpHelper.SendRequest(HttpMethod.Post,
-                        new Uri(Properties.Settings.Default.ViewClipUrl),
-                        postJson,
-                        Properties.Settings.Default.RetryOnRequestFailureCount, _token);
-
-                    if (viewclipResonse.Content == "Unauthorized")
+                    string clipUrl = @"https://app.pluralsight.com/player/api/graphql";
+                    //$"https://{Properties.Settings.Default.SiteHostName}/player?course={course.Id}&author={module.AuthorId}&name={module.ModuleId}&clip=0&mode=live";
+                    httpHelper.Referrer = new Uri($"https://{Properties.Settings.Default.SiteHostName}/player?course={course.Id}&author={module.AuthorId}&name={module.ModuleId}&clip=0&mode=live");
+                    string s = GraphQlHelper.GetClipsRequest(courceRpcData, course.Authors[0].Id, module.ModuleId.ToString(), clipCounter - 1);
+                    ResponseEx viewclipResponse = await httpHelper.SendRequest(HttpMethod.Post, new Uri("https://" + Settings.Default.SiteHostName + "/player/api/graphql"), s, Settings.Default.RetryOnRequestFailureCount, this._token);
+                    if (viewclipResponse.Content == "Unauthorized")
                     {
                         throw new UnauthorizedException(Properties.Resources.CheckYourSubscription);
                     }
 
-                    var clipFile = Newtonsoft.Json.JsonConvert.DeserializeObject<ClipFile>(viewclipResonse.Content);
+                    var clipData = Newtonsoft.Json.JsonConvert.DeserializeObject<ClipData>(viewclipResponse.Content);
 
-                    if (rpcData.Payload.Course.CourseHasCaptions)
+                    if (course.HasTranscript)
                     {
 
-                        string unformattedSubtitlesJson = await _subtitleService.DownloadAsync(httpHelper, module.Author, clipCounter - 1, module.Name, _token);
-                        Caption[] unformattedSubtitles = Newtonsoft.Json.JsonConvert.DeserializeObject<Caption[]>(unformattedSubtitlesJson);
-                        IList<SrtRecord> formattedSubtitles = GetFormattedSubtitles(unformattedSubtitles, clip.Duration);
+                        string unformattedSubtitlesJson = await _subtitleService.DownloadAsync(httpHelper, clip.ClipId.ToString(), _token);
+                        Caption[] unformattedSubtitles = JsonConvert.DeserializeObject<Caption[]>(unformattedSubtitlesJson);
+                        TimeSpan totalDurationTs = XmlConvert.ToTimeSpan(clip.Duration);
+                        IList<SrtRecord> formattedSubtitles = GetFormattedSubtitles(unformattedSubtitles, totalDurationTs);
                         _subtitleService.Write($"{fileName}.{Properties.Settings.Default.SubtitilesExtensionMp4}", formattedSubtitles);
                     }
 
-                    await DownloadClip(new Uri(clipFile.Urls[1].Url),
+                    await DownloadClip(clipData.Data.ViewClip.Urls[1].UrlUrl,
                       fileName,
                       clipCounter,
-                      rpcData.Payload.Course.Modules.Sum(m => m.Clips.Length));
+                      course.Modules.Sum(m => m.Clips.Length));
                 }
             }
         }
 
-        private List<SrtRecord> GetFormattedSubtitles(Caption[] captions, int totalDuration)
+        private List<SrtRecord> GetFormattedSubtitles(Caption[] captions, TimeSpan totalDuration)
         {
             List<SrtRecord> srtRecords = new List<SrtRecord>();
             System.Globalization.CultureInfo culture = new System.Globalization.CultureInfo("en-US");
@@ -241,7 +253,7 @@ namespace VideoDownloader.App.BL
             SrtRecord finalSrtRecord = new SrtRecord
             {
                 FromTimeSpan = TimeSpan.FromSeconds(Double.Parse(captions.Last().DisplayTimeOffset, culture)),
-                ToTimeSpan = TimeSpan.FromSeconds(Convert.ToDouble(totalDuration)),
+                ToTimeSpan = totalDuration,
                 Text = captions.Last().Text
             };
 
@@ -344,38 +356,38 @@ namespace VideoDownloader.App.BL
             return Directory.CreateDirectory(destinationFolder).FullName;
         }
 
-        private string BuildViewclipPostDataJson(RpcData rpcData, int moduleCounter, int clipCounter)
-        {
-            Module module = rpcData.Payload.Course.Modules[moduleCounter - 1];
-            ViewclipPostData viewclipData = new ViewclipPostData()
-            {
-                Author = module.Author,
-                IncludeCaptions = rpcData.Payload.Course.CourseHasCaptions,
-                ClipIndex = clipCounter - 1,
-                CourseName = rpcData.Payload.Course.Name,
-                Locale = Properties.Settings.Default.EnglishLocale,
-                ModuleName = module.Name,
-                MediaType = Properties.Settings.Default.ClipExtensionMp4,
-                Quality = rpcData.Payload.Course.SupportsWideScreenVideoFormats ? Properties.Settings.Default.Resolution1280x720 : Properties.Settings.Default.Resolution1024x768
-            };
-            return Newtonsoft.Json.JsonConvert.SerializeObject(viewclipData);
-        }
+        //private string BuildViewclipPostDataJson(CourseRpc course, int moduleCounter, int clipCounter)
+        //{
+        //    Module module = course.Modules[moduleCounter - 1];
+        //    ViewclipPostData viewclipData = new ViewclipPostData()
+        //    {
+        //        Author = module.AuthorId.ToString(),
+        //        IncludeCaptions = course.HasTranscript,
+        //        ClipIndex = clipCounter - 1,
+        //        CourseName = course.Id,
+        //        Locale = Properties.Settings.Default.EnglishLocale,
+        //        ModuleName = module.ModuleId,
+        //        MediaType = Properties.Settings.Default.ClipExtensionMp4,
+        //        Quality = course.SupportsWideScreenVideoFormats ? Properties.Settings.Default.Resolution1280x720 : Properties.Settings.Default.Resolution1024x768
+        //    };
+        //    return Newtonsoft.Json.JsonConvert.SerializeObject(viewclipData);
+        //}
 
-        private async Task<RpcData> GetDeserialisedRpcData(string rpcUri, string productId, CancellationToken token)
+        private async Task<CourseExtraInfo> GetCourseExtraInfo(string rpcUri, string productId, CancellationToken token)
         {
-            string rpcJson = $"{{\"fn\":\"bootstrapPlayer\", \"payload\":{{\"courseId\":\"{productId}\"}} }}";
-            var httpHelper = new HttpHelper
+            HttpHelper httpHelper = new HttpHelper()
             {
                 AcceptHeader = AcceptHeader.JsonTextPlain,
                 AcceptEncoding = string.Empty,
                 ContentType = ContentType.AppJsonUtf8,
-                Cookies = Cookies,
-                Referrer = new Uri($"https://{Properties.Settings.Default.SiteHostName}"),
-                UserAgent = _userAgent
+                Cookies = this.Cookies,
+                Referrer = new Uri("https://" + Settings.Default.SiteHostName),
+                UserAgent = this._userAgent
             };
-            var courseRespone = await httpHelper.SendRequest(HttpMethod.Post, new Uri(rpcUri), rpcJson, Properties.Settings.Default.RetryOnRequestFailureCount, token);
+            string graphQlRequest = GraphQlHelper.GetCourseExtraInfoRequest(productId);
+            ResponseEx response = await httpHelper.SendRequest(HttpMethod.Post, new Uri("https://" + Settings.Default.SiteHostName + "/player/api/graphql"), graphQlRequest, Settings.Default.RetryOnRequestFailureCount, token);
 
-            return Newtonsoft.Json.JsonConvert.DeserializeObject<RpcData>(courseRespone.Content);
+            return Newtonsoft.Json.JsonConvert.DeserializeObject<CourseExtraInfo>(response.Content);
         }
 
         public string GetBaseCourseDirectoryName(string destinationDirectory, string courseName)
@@ -466,7 +478,7 @@ namespace VideoDownloader.App.BL
 
         public async Task<List<CourseDescription>> GetToolCourses(string toolName)
         {
-            var courses = await Task.Run(() => CoursesByToolName.Single(kvp => kvp.Key == toolName).Value, _token);
+            var courses = await Task.Run(() => CoursesByToolName.Single(kvp => kvp.Key == toolName).Value);
             return courses;
         }
 

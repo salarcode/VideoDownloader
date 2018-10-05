@@ -19,11 +19,11 @@ namespace VideoDownloader.App.Contracts
 
         Dictionary<string, List<CourseDescription>> CoursesByToolName { get; set; }
 
-        Task DownloadAsync(string productId, IProgress<CourseDownloadingProgressArguments> downloadingProgress, IProgress<int> timeoutProgress, CancellationToken token);
+        Task DownloadAsync(Course course, IProgress<CourseDownloadingProgressArguments> downloadingProgress, IProgress<int> timeoutProgress, CancellationToken token);
 
-        Task<string> GetTableOfContentAsync(string productId, CancellationToken token);
+        string CreateTableOfContent(string courseJson);
 
-        Task<string> GetFullDescriptionAsync(string productId, CancellationToken token);
+        Task<string> GetFullCourseInformationAsync(string productId, CancellationToken token);
 
         Task<List<CourseDescription>> GetToolCourses(string toolName);
 

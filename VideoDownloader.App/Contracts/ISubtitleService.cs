@@ -9,6 +9,6 @@ namespace VideoDownloader.App.Contracts
     interface ISubtitleService
     {
         void Write(string fileName, IList<SrtRecord> subtitleRecords);
-        Task<string> DownloadAsync(HttpHelper httpHelper, string authorId, int partNumber, string moduleName, CancellationToken token);
+        Task<string> DownloadAsync(HttpHelper httpHelper, string clipId, CancellationToken token);
     }
 }
