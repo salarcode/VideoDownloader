@@ -36,17 +36,5 @@ namespace VideoDownloader.App.BL
                 }
             }
         }
-
-        private string BuildSubtitlePostDataJson(string authorId, int partNumber, string moduleName)
-        {
-            SubtitlePostData viewclipData = new SubtitlePostData()
-            {
-                Author = authorId,
-                ClipIndex = partNumber,
-                Locale = Properties.Settings.Default.EnglishLocale,
-                ModuleName = moduleName
-            };
-            return Newtonsoft.Json.JsonConvert.SerializeObject(viewclipData);
-        }
     }
 }

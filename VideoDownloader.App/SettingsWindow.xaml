@@ -43,8 +43,8 @@
             HorizontalAlignment="Left"
             VerticalAlignment="Center"
             Increment="1"
-            Maximum="600"
-            Minimum="60" />
+            Maximum="60"
+            Minimum="30" />
         
         <TextBlock 
             x:Name="MaxTimoutTextBlock" 

@@ -1,6 +1,4 @@
-﻿using System;
-
-namespace VideoDownloader.App.Model
+﻿namespace VideoDownloader.App.Model
 {
     public class CourseRpc
     {
@@ -9,7 +7,5 @@ namespace VideoDownloader.App.Model
         public Module[] Modules { get; set; }
         public bool HasTranscript { get; set; }
         public bool SupportsWideScreenVideoFormats { get; set; }
-        //public dynamic[] TranslationLanguages { get; set; }
-        //public DateTime Timestamp { get; set; }
     }
 }

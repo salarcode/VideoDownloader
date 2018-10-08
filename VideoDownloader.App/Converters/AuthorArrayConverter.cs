@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Linq;
 using System.Windows.Data;
 using VideoDownloader.App.Model;
 

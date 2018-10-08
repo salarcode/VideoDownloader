@@ -1,9 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using VideoDownloader.App.Model;
+﻿using VideoDownloader.App.Model;
 using VideoDownloader.App.Properties;
 
 namespace VideoDownloader.App
@@ -19,7 +14,7 @@ namespace VideoDownloader.App
                    + "courseName: \\\"" + course.Name + "\\\", includeCaptions: "
                    + course.CourseHasCaptions.ToString().ToLowerInvariant()
                    + ", locale: \\\"en\\\", mediaType: \\\"mp4\\\", moduleName: \\\""
-                   + moduleId//$"{course.Name}-m{moduleIndex:D4}"
+                   + moduleId
                    + "\\\", quality: \\\""
                    + (course.SupportsWideScreenVideoFormats ? Settings.Default.Resolution1280x720 : Settings.Default.Resolution1024x768)
                    + "\\\"}) {urls {url cdn rank source}, status}}\", \"variables\": {}}";

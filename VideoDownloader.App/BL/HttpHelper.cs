@@ -78,7 +78,7 @@ namespace VideoDownloader.App.BL
                     // success
                     return;
                 }
-                catch(Exception exc)
+                catch(Exception)
                 {
                     // ignored
                 }
