@@ -1,0 +1,10 @@
+*.dll
+*.pdb
+*.baml
+*.Cache
+VideoDownloader.App/obj/
+*.user
+*.exe
+VideoDownloader.App/bin/
+packages/
+.vs/
