@@ -3,9 +3,9 @@
     <!--Style for listview-->
     <Style x:Uid="Style_1" x:Key="ProductsListViewControlStyle" TargetType="{x:Type ListView}">
         <Setter x:Uid="Setter_1" Property="HorizontalContentAlignment" Value="Stretch"/>
-        <!--<Setter Property="ItemContainerStyle">
+        <Setter Property="ItemContainerStyle">
             <Setter.Value>
-                --><!--Style of listview item--><!--
+                <!--Style of listview item-->
                 <Style TargetType="{x:Type ListViewItem}" >
                     <Setter Property="SnapsToDevicePixels" Value="true"/>
                     <Setter Property="ToolTip">
@@ -17,7 +17,7 @@
                     </Setter>
                     <Setter Property="Template">
                         <Setter.Value>
-                            --><!--Margin="0" is the space between items--><!--
+                            <!--Margin="0" is the space between items-->
                             <ControlTemplate TargetType="{x:Type ListViewItem}">
                                 <Border Margin="0" CornerRadius="4" BorderThickness="2" x:Name="IconBorder">
                                     <ContentPresenter />
@@ -35,6 +35,6 @@
                     </Setter>
                 </Style>
             </Setter.Value>
-        </Setter>-->
+        </Setter>
     </Style>
 </ResourceDictionary>

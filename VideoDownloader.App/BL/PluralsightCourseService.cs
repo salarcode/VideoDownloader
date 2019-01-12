@@ -201,7 +201,7 @@ namespace VideoDownloader.App.BL
                 if (!File.Exists($"{fileName}.{Settings.Default.ClipExtensionMp4}"))
                 {
                     httpHelper.Referrer = new Uri($"https://{Settings.Default.SiteHostName}/player?course={course.Id}&author={module.AuthorId}&name={module.ModuleId}&clip=0&mode=live");
-                    string s = GraphQlHelper.GetClipsRequest(courceRpcData, course.Authors[0].Id, module.Id.Split('|')[2], clipCounter - 1);
+                    string s = GraphQlHelper.GetClipsRequest(courceRpcData, module.Id.Split('|')[1], module.Id.Split('|')[2], clipCounter - 1);
                     ResponseEx viewclipResponse = await httpHelper.SendRequest(HttpMethod.Post, new Uri("https://" + Settings.Default.SiteHostName + "/player/api/graphql"), s, Settings.Default.RetryOnRequestFailureCount, _token);
                     if (viewclipResponse.Content == "Unauthorized")
                     {
