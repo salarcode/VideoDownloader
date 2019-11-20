@@ -24,7 +24,7 @@
       <Value Profile="(Default)">en</Value>
     </Setting>
     <Setting Name="AllCoursesUrl" Type="System.String" Scope="Application">
-      <Value Profile="(Default)">https://app.pluralsight.com/search/proxy?i=1&amp;q1=course&amp;x1=categories&amp;m_Sort=updated_date&amp;count=7100</Value>
+      <Value Profile="(Default)">https://app.pluralsight.com/mobile-api/v2/library/search/courses?sort=published_date&amp;page=1&amp;perPage=100</Value>
     </Setting>
     <Setting Name="FirstUrlForLogin" Type="System.String" Scope="Application">
       <Value Profile="(Default)">https://app.pluralsight.com/id/</Value>
